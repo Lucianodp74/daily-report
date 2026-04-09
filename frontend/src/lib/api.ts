@@ -238,3 +238,12 @@ export interface AdminStats {
 export interface Template {
   id: string; nome: string; testo_base: string; categoria: string; descrizione: string | null
 }
+
+// ── Alias di compatibilità (usati dai componenti vecchi) ──────────
+// Permettono di non riscrivere tutti i file che importano le funzioni vecchie
+export const setToken   = (t: string) => tokenStore.setTokens(t, '')
+export const clearToken = () => tokenStore.clearAll()
+
+// StatsMese: aggiunge alias per campo rinominato (media_ore → media_ore_giorno)
+// I componenti vecchi leggono stats.media_ore, il backend ora manda media_ore_giorno
+// Il fix è nel trasformatore in reportsApi.stats (vedi sopra)
