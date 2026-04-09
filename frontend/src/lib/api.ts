@@ -3,7 +3,7 @@
 // Novità: refresh token automatico, retry su 401, tipi aggiornati
 // ================================================================
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+const BASE_URL = 'https://daily-report-production-d54f.up.railway.app'
 
 // ── Token storage ─────────────────────────────────────────────────
 const KEYS = {
