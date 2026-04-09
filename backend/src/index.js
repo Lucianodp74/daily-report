@@ -4,7 +4,8 @@ const express   = require('express')
 const cors      = require('cors')
 const helmet    = require('helmet')
 const rateLimit = require('express-rate-limit')
-const { pool }  = require('./utils/db')
+const db = require('./utils/db')
+const pool = db.pool || db
 const { initCronJobs } = require('./jobs/cron')
 
 const app  = express()
