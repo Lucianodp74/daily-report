@@ -224,7 +224,7 @@ export interface StatsMese {
 }
 export interface StatsUtente {
   id: string; nome: string; email: string; avatar: string | null
-  totale_report: number; ore_totali: number; media_ore: number
+  totale_report: number; ore_totali: number; media_ore: number; attivo?: boolean
   ultimo_report: string | null; report_30gg: number
   ore_standard_giornaliere: number; giorni_lavorativi_sett: number
   mancante_oggi: boolean
