@@ -220,7 +220,7 @@ export interface ReportMensile {
 export interface StatsMese {
   giorni_lavorati: number; ore_totali: number; media_ore: number
   giorni_attesi: number; ore_attese: number; percentuale_comp: number
-  valutazione: string; giorni_mancanti: number; giorni_sotto_std: number
+  valutazione: string; giorni_mancanti: number; giorni_sotto_std: number; has_alerts: boolean; alerts: { tipo: string; messaggio: string; gravita: string }[]
 }
 export interface StatsUtente {
   id: string; nome: string; email: string; avatar: string | null
