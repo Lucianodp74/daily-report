@@ -1,4 +1,5 @@
 'use client'
+import { Suspense } from 'react'
 // ================================================================
 // app/reset-password/page.tsx
 // Gestisce sia il form "inserisci email" che "nuova password"
@@ -9,7 +10,7 @@ import { useForm } from 'react-hook-form'
 import Link from 'next/link'
 import { authApi } from '@/lib/api'
 
-export default function ResetPasswordPage() {
+function ResetPasswordPage() {
   const search = useSearchParams()
   const router = useRouter()
   const token  = search.get('token')
@@ -147,5 +148,14 @@ function NuovaPasswordForm({ token, router }: { token: string; router: ReturnTyp
         </button>
       </form>
     </div>
+  )
+}
+
+
+export default function ResetPasswordPageWrapper() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-navy-600 border-t-transparent rounded-full animate-spin" /></div>}>
+      <ResetPasswordPage />
+    </Suspense>
   )
 }
