@@ -11,7 +11,7 @@ import { reportsApi, authApi, type Report, type StatsMese, type Utente } from '@
 import { format, isToday, parseISO } from 'date-fns'
 import { it } from 'date-fns/locale'
 
-function fmt(n: number) { return n % 1 === 0 ? `${n}h` : `${n.toFixed(1)}h` }
+function fmt(n: number | string) { const v = Number(n); return v % 1 === 0 ? `${v}h` : `${v.toFixed(1)}h` }
 
 export default function DashboardPage() {
   const oggi   = new Date()
