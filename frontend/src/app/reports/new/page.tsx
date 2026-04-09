@@ -2,7 +2,7 @@
 // ================================================================
 // app/reports/new/page.tsx — Inserimento / modifica report
 // ================================================================
-import { useState, useEffect } from 'react'
+import { useState, Suspense, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useRouter, useSearchParams } from 'next/navigation'
 import AppShell from '@/components/layout/AppShell'
@@ -10,7 +10,7 @@ import { reportsApi, type ReportForm } from '@/lib/api'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 
-export default function NewReportPage() {
+function NewReportPage() {
   const router = useRouter()
   const search = useSearchParams()
   const editId = search.get('edit')   // se presente → modalità modifica
@@ -180,5 +180,14 @@ export default function NewReportPage() {
         </div>
       </div>
     </AppShell>
+  )
+}
+
+
+export default function NewReportPageWrapper() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-navy-600 border-t-transparent rounded-full animate-spin" /></div>}>
+      <NewReportPage />
+    </Suspense>
   )
 }
