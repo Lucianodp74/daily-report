@@ -49,7 +49,7 @@ export default function AdminReportsPage() {
           <div>
             <h1 className="font-display font-bold text-2xl text-slate-900">Report — Vista Admin</h1>
             <p className="text-slate-500 text-sm mt-1">
-              {reports.length} report · {oreTotal.toFixed(1)}h totali
+              {reports.length} report · {Number(oreTotal).toFixed(1)}h totali
             </p>
           </div>
           <a

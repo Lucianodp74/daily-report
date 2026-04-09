@@ -10,7 +10,7 @@ import { format, parseISO } from 'date-fns'
 import { it } from 'date-fns/locale'
 
 function formatOre(n: number) {
-  return n % 1 === 0 ? `${n}h` : `${n.toFixed(1)}h`
+  const v = Number(n); return v % 1 === 0 ? `${v}h` : `${v.toFixed(1)}h`
 }
 
 function oreColor(h: number) {
@@ -117,7 +117,7 @@ export default function HistoryPage() {
                   </h3>
                   <div className="flex-1 h-px bg-slate-100" />
                   <span className="text-xs text-slate-400">
-                    {rpts.reduce((s, r) => s + r.ore_lavorate, 0).toFixed(1)}h totali
+                    {rpts.reduce((s, r) => s + Number(r.ore_lavorate), 0).toFixed(1)}h totali
                   </span>
                 </div>
                 <div className="space-y-2">
