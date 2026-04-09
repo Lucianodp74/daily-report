@@ -36,8 +36,8 @@ export function useAuth() {
     setState(s => ({ ...s, loading: true, error: null }))
     try {
       const res = await authApi.login(email, password)
-      setToken(res.data.token)
-      localStorage.setItem('dr_ruolo', res.data.utente.ruolo)
+      // token gestito da authApi.login
+      // ruolo gestito da authApi.login
       setState({ utente: res.data.utente, loading: false, error: null })
       router.push(res.data.utente.ruolo === 'admin' ? '/admin' : '/dashboard')
     } catch (err: unknown) {
