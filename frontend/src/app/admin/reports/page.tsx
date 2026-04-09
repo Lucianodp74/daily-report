@@ -113,7 +113,7 @@ export default function AdminReportsPage() {
                     </tr>
                   ) : (
                     reports.map(r => (
-                      <tr key={r.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setSelected(r)} className="hover:bg-slate-50 transition-colors">
+                      <tr key={r.id} className="cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => setSelected(r)}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <div className={`avatar-sm text-white text-xs ${avatarColor(r.nome_utente)}`}>
