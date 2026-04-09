@@ -207,7 +207,26 @@ async function sendAlertAdminMancanti(adminEmail, mancanti, data) {
   })
 }
 
+
+/** Email di benvenuto per nuovo utente */
+async function sendWelcomeEmail(email, nome) {
+  const html = wrapTemplate(`
+    <h2>Benvenuto, ${nome.split(' ')[0]}! 👋</h2>
+    <p>Il tuo account sul sistema <strong>Daily Report</strong> di Gruppo Visconti è stato creato.</p>
+    <p>Puoi accedere con la tua email e la password temporanea che ti è stata comunicata.</p>
+    <p>Ti consigliamo di cambiare la password al primo accesso nelle impostazioni del profilo.</p>
+    <a href="${BASE_URL}/login" class="btn">🚀 Accedi ora</a>
+  `, 'Benvenuto su Daily Report')
+
+  return sendEmail({
+    to:      email,
+    subject: '🎉 Benvenuto su Daily Report — Gruppo Visconti',
+    html,
+  })
+}
+
 module.exports = {
+  sendWelcomeEmail,
   sendReminderReportMancante,
   sendReportMensileGenerato,
   sendPasswordResetEmail,

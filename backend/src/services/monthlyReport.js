@@ -53,7 +53,7 @@ Rispondi SOLO con il testo del commento.`
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model:      'claude-opus-4-6',
+          model:      'claude-sonnet-4-6',
           max_tokens: 300,
           messages:   [{ role: 'user', content: prompt }],
         }),
@@ -66,8 +66,8 @@ Rispondi SOLO con il testo del commento.`
       }
 
       const data    = await res.json()
-      const testo   = data.content?.[0]?.text?.trim()
-      if (testo && testo.length > 20) return testo
+      const aiText  = data.content?.[0]?.text?.trim()
+      if (aiText && aiText.length > 20) return aiText
 
       throw new Error('Risposta AI vuota o troppo breve')
 

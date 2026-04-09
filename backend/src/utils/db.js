@@ -7,4 +7,7 @@ const pool = new Pool({
     : false,
 });
 
-module.exports = pool;
+// query() legata al pool — destructuring non perde il contesto this
+const query = (text, params) => pool.query(text, params);
+
+module.exports = { pool, query };

@@ -1,14 +1,14 @@
 // ================================================================
 // routes/auth.js v2 — Auth completa
-// Novità: refresh token, password reset, account lock, logout sicuro
 // ================================================================
 const router  = require('express').Router()
 const bcrypt  = require('bcryptjs')
 const jwt     = require('jsonwebtoken')
 const crypto  = require('crypto')
 const { query } = require('../utils/db')
+const logger    = require('../utils/logger')
 const { requireAuth } = require('../middleware/auth')
-const { sendPasswordResetEmail, sendWelcomeEmail } = require('../services/email')
+const { sendPasswordResetEmail } = require('../services/email')
 const {
   validateLogin,
   validateChangePassword,
@@ -17,7 +17,7 @@ const {
   validateUserSettings,
 } = require('../middleware/validate')
 
-const ACCESS_TTL  = '15m'    // ← access token breve (era 7d — CRITICO da correggere)
+const ACCESS_TTL  = '15m'
 const REFRESH_TTL = '30d'
 const MAX_LOGIN_ATTEMPTS = 5
 const LOCK_MINUTES = 15
@@ -32,16 +32,17 @@ function signAccess(utente) {
 }
 
 async function signRefresh(userId) {
-  const token = crypto.randomBytes(48).toString('hex')
-  const hash  = await bcrypt.hash(token, 10)   // hash leggero (non password)
-  const exp   = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+  const random = crypto.randomBytes(48).toString('hex')
+  const hash   = await bcrypt.hash(random, 10)
+  const exp    = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
   await query(
     `UPDATE utenti
      SET refresh_token_hash = $1, refresh_token_expires_at = $2
      WHERE id = $3`,
     [hash, exp, userId]
   )
-  return token   // restituisce il token grezzo (da mandare al client)
+  // Include userId nel token per lookup O(1) nel refresh
+  return `${userId}.${random}`
 }
 
 // ── POST /api/auth/login ──────────────────────────────────────────
@@ -57,14 +58,12 @@ router.post('/login', validateLogin, async (req, res) => {
     )
     const u = rows[0]
 
-    // Account non trovato — risposta generica (no user enumeration)
     if (!u) return res.status(401).json({ success: false, error: 'Credenziali non valide' })
 
     if (!u.attivo) {
       return res.status(403).json({ success: false, error: 'Account disabilitato. Contattare l\'amministratore.' })
     }
 
-    // ── Account lock check ───────────────────────────────────────
     if (u.login_locked_until && new Date(u.login_locked_until) > new Date()) {
       const minRim = Math.ceil((new Date(u.login_locked_until) - Date.now()) / 60000)
       return res.status(429).json({
@@ -73,7 +72,6 @@ router.post('/login', validateLogin, async (req, res) => {
       })
     }
 
-    // ── Verifica password ────────────────────────────────────────
     const ok = await bcrypt.compare(password, u.password_hash)
 
     if (!ok) {
@@ -83,9 +81,7 @@ router.post('/login', validateLogin, async (req, res) => {
         : null
 
       await query(
-        `UPDATE utenti
-         SET login_attempts = $1, login_locked_until = $2
-         WHERE id = $3`,
+        `UPDATE utenti SET login_attempts = $1, login_locked_until = $2 WHERE id = $3`,
         [attempts, lockUntil, u.id]
       )
 
@@ -98,36 +94,32 @@ router.post('/login', validateLogin, async (req, res) => {
       })
     }
 
-    // ── Login OK: reset tentativi, genera tokens ─────────────────
     await query(
-      `UPDATE utenti
-       SET login_attempts = 0, login_locked_until = NULL, ultimo_accesso = NOW()
-       WHERE id = $1`,
+      `UPDATE utenti SET login_attempts = 0, login_locked_until = NULL, ultimo_accesso = NOW() WHERE id = $1`,
       [u.id]
     )
 
     const accessToken  = signAccess(u)
     const refreshToken = await signRefresh(u.id)
 
-    const { password_hash: _, ...pub } = u
+    const { password_hash: _, login_attempts: _a, login_locked_until: _l, ...pub } = u
 
     return res.json({
       success: true,
       data: {
         access_token:  accessToken,
         refresh_token: refreshToken,
-        expires_in:    15 * 60,   // secondi
+        expires_in:    15 * 60,
         utente:        pub,
       }
     })
   } catch (err) {
-    req.log.error({ err }, 'Errore login')
+    logger.error({ err: err.message }, 'Errore login')
     return res.status(500).json({ success: false, error: 'Errore server' })
   }
 })
 
 // ── POST /api/auth/refresh ────────────────────────────────────────
-// Scambia refresh token con un nuovo access token
 router.post('/refresh', async (req, res) => {
   const { refresh_token } = req.body
   if (!refresh_token) {
@@ -135,31 +127,32 @@ router.post('/refresh', async (req, res) => {
   }
 
   try {
-    // Cerca utenti con refresh token non scaduto
+    const dotIdx = refresh_token.indexOf('.')
+    if (dotIdx === -1) {
+      return res.status(401).json({ success: false, error: 'Refresh token non valido' })
+    }
+    const userId   = refresh_token.slice(0, dotIdx)
+    const rawToken = refresh_token.slice(dotIdx + 1)
+
     const { rows } = await query(
       `SELECT id, nome, email, ruolo, avatar, attivo,
               refresh_token_hash, refresh_token_expires_at
        FROM utenti
-       WHERE refresh_token_expires_at > NOW()
+       WHERE id = $1
+         AND refresh_token_expires_at > NOW()
          AND refresh_token_hash IS NOT NULL
-         AND attivo = true`
+         AND attivo = true
+       LIMIT 1`,
+      [userId]
     )
 
-    // Verifica il token contro tutti i candidati (necessario perché è hashed)
-    let matched = null
-    for (const u of rows) {
-      if (await bcrypt.compare(refresh_token, u.refresh_token_hash)) {
-        matched = u
-        break
-      }
-    }
-
-    if (!matched) {
+    const u = rows[0]
+    if (!u || !(await bcrypt.compare(rawToken, u.refresh_token_hash))) {
       return res.status(401).json({ success: false, error: 'Refresh token non valido o scaduto' })
     }
 
-    const newAccess  = signAccess(matched)
-    const newRefresh = await signRefresh(matched.id)   // rotation: invalida il vecchio
+    const newAccess  = signAccess(u)
+    const newRefresh = await signRefresh(u.id)
 
     return res.json({
       success: true,
@@ -170,20 +163,17 @@ router.post('/refresh', async (req, res) => {
       }
     })
   } catch (err) {
-    req.log.error({ err }, 'Errore refresh')
+    logger.error({ err: err.message }, 'Errore refresh')
     return res.status(500).json({ success: false, error: 'Errore server' })
   }
 })
 
 // ── POST /api/auth/logout ─────────────────────────────────────────
-// Invalida il refresh token (logout sicuro)
 router.post('/logout', requireAuth, async (req, res) => {
   await query(
-    `UPDATE utenti
-     SET refresh_token_hash = NULL, refresh_token_expires_at = NULL
-     WHERE id = $1`,
+    `UPDATE utenti SET refresh_token_hash = NULL, refresh_token_expires_at = NULL WHERE id = $1`,
     [req.userId]
-  ).catch(() => {})   // best effort
+  ).catch(() => {})
 
   return res.json({ success: true, message: 'Logout effettuato' })
 })
@@ -207,14 +197,12 @@ router.get('/me', requireAuth, async (req, res) => {
 })
 
 // ── PATCH /api/auth/settings ──────────────────────────────────────
-// Aggiorna preferenze utente (ore standard, notifiche, ecc.)
 router.patch('/settings', requireAuth, validateUserSettings, async (req, res) => {
   const allowed = [
     'ore_standard_giornaliere', 'giorni_lavorativi_sett',
     'tolleranza_pct', 'notifiche_email', 'notifica_reminder_ora'
   ]
-  const updates = Object.entries(req.body)
-    .filter(([k]) => allowed.includes(k))
+  const updates = Object.entries(req.body).filter(([k]) => allowed.includes(k))
 
   if (updates.length === 0) {
     return res.status(400).json({ success: false, error: 'Nessun campo valido' })
@@ -242,7 +230,7 @@ router.post('/change-password', requireAuth, validateChangePassword, async (req,
   const { passwordAttuale, passwordNuova } = req.body
   try {
     const { rows } = await query('SELECT password_hash FROM utenti WHERE id = $1', [req.userId])
-    if (!await bcrypt.compare(passwordAttuale, rows[0].password_hash)) {
+    if (!rows[0] || !await bcrypt.compare(passwordAttuale, rows[0].password_hash)) {
       return res.status(401).json({ success: false, error: 'Password attuale errata' })
     }
     const hash = await bcrypt.hash(passwordNuova, 12)
@@ -259,11 +247,8 @@ router.post('/change-password', requireAuth, validateChangePassword, async (req,
 // ── POST /api/auth/forgot-password ───────────────────────────────
 router.post('/forgot-password', validateResetRequest, async (req, res) => {
   const { email } = req.body
-
-  // Risposta sempre OK (evita user enumeration)
   const successResponse = () => res.json({
-    success: true,
-    message: 'Se l\'email è registrata, riceverai le istruzioni.'
+    success: true, message: 'Se l\'email è registrata, riceverai le istruzioni.'
   })
 
   try {
@@ -274,7 +259,7 @@ router.post('/forgot-password', validateResetRequest, async (req, res) => {
     if (!rows[0]) return successResponse()
 
     const token   = crypto.randomBytes(32).toString('hex')
-    const expires = new Date(Date.now() + 60 * 60 * 1000)  // 1 ora
+    const expires = new Date(Date.now() + 60 * 60 * 1000)
 
     await query(
       'UPDATE utenti SET reset_token = $1, reset_token_expires_at = $2 WHERE id = $3',
@@ -284,8 +269,8 @@ router.post('/forgot-password', validateResetRequest, async (req, res) => {
     await sendPasswordResetEmail(email, rows[0].nome, token)
     return successResponse()
   } catch (err) {
-    req.log.error({ err }, 'Errore forgot-password')
-    return successResponse()  // non rivelare errori
+    logger.error({ err: err.message }, 'Errore forgot-password')
+    return successResponse()
   }
 })
 
@@ -296,9 +281,7 @@ router.post('/reset-password', validateResetPassword, async (req, res) => {
   try {
     const { rows } = await query(
       `SELECT id FROM utenti
-       WHERE reset_token = $1
-         AND reset_token_expires_at > NOW()
-         AND attivo = true
+       WHERE reset_token = $1 AND reset_token_expires_at > NOW() AND attivo = true
        LIMIT 1`,
       [token]
     )
@@ -309,12 +292,8 @@ router.post('/reset-password', validateResetPassword, async (req, res) => {
     const hash = await bcrypt.hash(nuovaPassword, 12)
     await query(
       `UPDATE utenti
-       SET password_hash = $1,
-           reset_token = NULL,
-           reset_token_expires_at = NULL,
-           login_attempts = 0,
-           login_locked_until = NULL,
-           refresh_token_hash = NULL
+       SET password_hash = $1, reset_token = NULL, reset_token_expires_at = NULL,
+           login_attempts = 0, login_locked_until = NULL, refresh_token_hash = NULL
        WHERE id = $2`,
       [hash, rows[0].id]
     )

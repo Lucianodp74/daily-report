@@ -1,12 +1,13 @@
 'use client'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { tokenStore } from '@/lib/api'
 
 export default function HomePage() {
   const router = useRouter()
   useEffect(() => {
-    const token = localStorage.getItem('dr_token')
-    const ruolo = localStorage.getItem('dr_ruolo')
+    const token = tokenStore.getAccess()
+    const ruolo = tokenStore.getRuolo()
     if (token) {
       router.replace(ruolo === 'admin' ? '/admin' : '/dashboard')
     } else {

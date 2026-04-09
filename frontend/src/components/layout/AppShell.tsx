@@ -19,8 +19,7 @@ export default function AppShell({ children, requireAdmin = false }: AppShellPro
   const [mobileNav, setMobile] = useState(false)
 
   useEffect(() => {
-    // Controlla token (supporta sia dr_access che dr_token legacy)
-    const token = tokenStore.access() || localStorage.getItem('dr_token')
+    const token = tokenStore.getAccess()
     if (!token) { router.replace('/login'); return }
 
     authApi.me()
@@ -64,7 +63,6 @@ export default function AppShell({ children, requireAdmin = false }: AppShellPro
         onMobileClose={() => setMobile(false)}
       />
       <main className="flex-1 lg:ml-60 min-h-screen flex flex-col">
-        {/* Mobile topbar */}
         <header className="lg:hidden sticky top-0 z-20 bg-white border-b border-slate-100 px-4 py-3 flex items-center gap-3">
           <button onClick={() => setMobile(true)} className="p-2 rounded-lg hover:bg-slate-100 transition-colors">
             <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">

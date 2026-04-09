@@ -7,7 +7,7 @@ import Link from 'next/link'
 import AppShell from '@/components/layout/AppShell'
 import StatCard from '@/components/ui/StatCard'
 import ValutazioneBadge, { ProgressBar } from '@/components/ui/ValutazioneBadge'
-import { adminApi, type AdminStats } from '@/lib/api'
+import { adminApi, tokenStore, type AdminStats } from '@/lib/api'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 
@@ -169,7 +169,7 @@ export default function AdminPage() {
             { href: '/admin/reports', icon: '📋', label: 'Tutti i Report' },
             { href: '/admin/monthly', icon: '📊', label: 'Report Mensili' },
             { href: '/admin/users',   icon: '👥', label: 'Collaboratori' },
-            { href: `/api/export/csv?token=${typeof window !== 'undefined' ? localStorage.getItem('dr_token') : ''}`, icon: '📥', label: 'Export CSV', external: true },
+            { href: `/api/export/csv?token=${typeof window !== 'undefined' ? tokenStore.getAccess() : ''}`, icon: '📥', label: 'Export CSV', external: true },
           ].map(({ href, icon, label, external }) => (
             external ? (
               <a key={label} href={href} download className="card-hover p-4 text-center group block">

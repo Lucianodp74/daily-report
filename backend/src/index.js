@@ -4,8 +4,9 @@ const express   = require('express')
 const cors      = require('cors')
 const helmet    = require('helmet')
 const rateLimit = require('express-rate-limit')
-const db = require('./utils/db')
-const pool = db.pool || db
+const pinoHttp  = require('pino-http')
+const logger    = require('./utils/logger')
+const { pool }  = require('./utils/db')
 const { initCronJobs } = require('./jobs/cron')
 
 const app  = express()
@@ -19,6 +20,8 @@ app.use(cors({
   methods:     ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization'],
 }))
+
+app.use(pinoHttp({ logger, autoLogging: false }))
 
 app.use(rateLimit({ windowMs: 15*60*1000, max: 200 }))
 app.use('/api/auth/login', rateLimit({ windowMs: 15*60*1000, max: 10, skipSuccessfulRequests: true }))
@@ -56,17 +59,18 @@ app.use((req, res) => {
 })
 
 app.use((err, req, res, _next) => {
-  console.error('[ERROR]', err.message)
+  logger.error({ err: err.message, stack: err.stack }, 'Errore non gestito')
   res.status(err.statusCode || 500).json({ success: false, error: err.message || 'Errore interno' })
 })
 
 process.on('SIGTERM', async () => { await pool.end(); process.exit(0) })
-process.on('unhandledRejection', (r) => console.error('[unhandledRejection]', r))
-process.on('uncaughtException', (e) => { console.error('[uncaughtException]', e.message); process.exit(1) })
+process.on('unhandledRejection', (r) => logger.error({ err: r }, 'unhandledRejection'))
+process.on('uncaughtException', (e) => { logger.error({ err: e.message }, 'uncaughtException'); process.exit(1) })
 
 async function initDB() {
   await pool.query(`
     CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
     CREATE TABLE IF NOT EXISTS utenti (
       id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
       nome VARCHAR(100) NOT NULL,
@@ -91,6 +95,7 @@ async function initDB() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
     CREATE TABLE IF NOT EXISTS report (
       id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
       user_id UUID NOT NULL REFERENCES utenti(id) ON DELETE CASCADE,
@@ -104,6 +109,7 @@ async function initDB() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       CONSTRAINT report_utente_data_uq UNIQUE (user_id, data)
     );
+
     CREATE TABLE IF NOT EXISTS report_mensili (
       id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
       user_id UUID NOT NULL REFERENCES utenti(id) ON DELETE CASCADE,
@@ -111,6 +117,7 @@ async function initDB() {
       mese SMALLINT NOT NULL,
       ore_totali DECIMAL(6,2) NOT NULL DEFAULT 0,
       ore_attese DECIMAL(6,2) NOT NULL DEFAULT 0,
+      ore_attese_reali DECIMAL(6,2) DEFAULT NULL,
       giorni_lavorati SMALLINT NOT NULL DEFAULT 0,
       giorni_attesi SMALLINT NOT NULL DEFAULT 0,
       giorni_sotto_std SMALLINT NOT NULL DEFAULT 0,
@@ -121,8 +128,10 @@ async function initDB() {
       testo_aggregato TEXT,
       generato_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       generato_da VARCHAR(20) NOT NULL DEFAULT 'auto',
+      calc_version SMALLINT NOT NULL DEFAULT 1,
       CONSTRAINT report_mensili_uq UNIQUE (user_id, anno, mese)
     );
+
     CREATE TABLE IF NOT EXISTS statistiche_mensili (
       id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
       anno SMALLINT NOT NULL,
@@ -135,6 +144,7 @@ async function initDB() {
       calcolato_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       CONSTRAINT stats_mensili_uq UNIQUE (anno, mese)
     );
+
     CREATE TABLE IF NOT EXISTS alert_log (
       id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
       user_id UUID NOT NULL REFERENCES utenti(id) ON DELETE CASCADE,
@@ -146,8 +156,39 @@ async function initDB() {
       errore TEXT,
       CONSTRAINT alert_log_uq UNIQUE (user_id, tipo, riferimento)
     );
+
+    CREATE TABLE IF NOT EXISTS templates_report (
+      id VARCHAR(50) PRIMARY KEY,
+      nome VARCHAR(100) NOT NULL,
+      descrizione TEXT,
+      testo_base TEXT NOT NULL,
+      categoria VARCHAR(50),
+      attivo BOOLEAN NOT NULL DEFAULT true,
+      sort_order SMALLINT NOT NULL DEFAULT 0
+    );
+
+    INSERT INTO templates_report (id, nome, testo_base, categoria, sort_order) VALUES
+    ('riunione',   'Riunione / Call',
+     'Partecipazione a riunione/call con [partecipanti] per [argomento]. Durata: [X]h. Esito: [risultato/decisioni prese].',
+     'comunicazione', 1),
+    ('sviluppo',   'Sviluppo / Coding',
+     'Sviluppo [funzionalità/modulo] per [progetto]. Attività svolte: [dettaglio]. Stato avanzamento: [X]%.',
+     'tecnico', 2),
+    ('analisi',    'Analisi / Studio',
+     'Analisi [argomento/documento] relativa a [contesto]. Principali evidenze: [punti chiave]. Output: [deliverable].',
+     'tecnico', 3),
+    ('sopralluogo','Sopralluogo / Trasferta',
+     'Sopralluogo presso [luogo] per [motivo]. Presenti: [nomi]. Note e rilievi: [dettaglio].',
+     'operativo', 4),
+    ('admin',      'Attività Amministrative',
+     'Gestione pratiche amministrative: [lista attività]. Documentazione elaborata/inviata: [dettaglio].',
+     'amministrativo', 5),
+    ('report',     'Redazione Report',
+     'Redazione [tipo report] relativo a [argomento/periodo]. Contenuto: [punti principali]. Destinatari: [a chi].',
+     'comunicazione', 6)
+    ON CONFLICT (id) DO NOTHING;
   `)
-  console.log('✅ Tabelle create/verificate')
+  logger.info('Tabelle create/verificate')
 
   const { rows: check } = await pool.query('SELECT COUNT(*) FROM utenti')
   if (Number(check[0].count) === 0) {
@@ -162,18 +203,18 @@ async function initDB() {
       ('Federico Accetturo','f.accetturo@gruppovisconti.it','$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4oJPGk6Kxy','user','FA'),
       ('Federica Santolupe','f.santolupe@gruppovisconti.it','$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4oJPGk6Kxy','user','FS')
     `)
-    console.log('✅ Utenti inseriti')
+    logger.info('Utenti seed inseriti')
   }
 }
 
 app.listen(PORT, async () => {
-  console.log(`🚀 Backend avviato su porta ${PORT}`)
+  logger.info(`Backend avviato su porta ${PORT}`)
   try {
     await pool.query('SELECT 1')
-    console.log('✅ Database connesso')
+    logger.info('Database connesso')
     await initDB()
   } catch (err) {
-    console.error('❌ Database non raggiungibile:', err.message)
+    logger.error({ err: err.message }, 'Database non raggiungibile')
     process.exit(1)
   }
   if (process.env.ENABLE_CRON !== 'false') initCronJobs()

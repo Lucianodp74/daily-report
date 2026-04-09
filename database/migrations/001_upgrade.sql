@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS alert_log (
   user_id     UUID         NOT NULL REFERENCES utenti(id) ON DELETE CASCADE,
   tipo        VARCHAR(50)  NOT NULL,  -- 'reminder_report', 'ore_basse', 'report_mancante'
   canale      VARCHAR(20)  NOT NULL DEFAULT 'email',
-  riferimento DATE         NOT NULL,   -- data a cui si riferisce l'alert
+  riferimento VARCHAR(20)  NOT NULL,   -- data a cui si riferisce l'alert
   inviato_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   success     BOOLEAN      NOT NULL DEFAULT true,
   errore      TEXT,
@@ -171,4 +171,4 @@ GROUP BY u.id, u.nome, u.email, u.avatar,
          u.tolleranza_pct, u.notifiche_email
 ORDER BY u.nome;
 
-RAISE NOTICE 'Migration 001 completata con successo';
+DO $$ BEGIN RAISE NOTICE 'Migration 001 completata con successo'; END $$;
