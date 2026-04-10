@@ -17,7 +17,7 @@ const {
   validateUserSettings,
 } = require('../middleware/validate')
 
-const ACCESS_TTL  = '15m'
+const ACCESS_TTL  = '7d'
 const REFRESH_TTL = '30d'
 const MAX_LOGIN_ATTEMPTS = 5
 const LOCK_MINUTES = 15
