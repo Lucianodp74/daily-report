@@ -1,7 +1,5 @@
 'use client'
-// ================================================================
-// app/tasks/new/page.tsx — Crea nuova task
-// ================================================================
+import { Suspense } from 'react'
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -9,10 +7,10 @@ import AppShell from '@/components/layout/AppShell'
 import { tasksApi, adminApi, authApi, PRIORITA_CONFIG, type TaskForm, type StatsUtente, type Utente } from '@/lib/api'
 import clsx from 'clsx'
 
-export default function NuovaTaskPage() {
+function NuovaTaskForm() {
   const router  = useRouter()
   const search  = useSearchParams()
-  const preUser = search.get('user_id')  // pre-seleziona utente se passato da admin
+  const preUser = search.get('user_id')
 
   const [utenti,  setUtenti]  = useState<StatsUtente[]>([])
   const [meInfo,  setMeInfo]  = useState<Utente | null>(null)
@@ -20,10 +18,7 @@ export default function NuovaTaskPage() {
   const [error,   setError]   = useState<string | null>(null)
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<TaskForm>({
-    defaultValues: {
-      priorita:    2,
-      assegnato_a: preUser ?? '',
-    }
+    defaultValues: { priorita: 2, assegnato_a: preUser ?? '' }
   })
 
   const prioritaSelezionata = watch('priorita')
@@ -32,7 +27,6 @@ export default function NuovaTaskPage() {
     Promise.all([authApi.me(), adminApi.users()]).then(([me, u]) => {
       setMeInfo(me.data)
       setUtenti(u.data)
-      // Se non è admin, pre-seleziona se stesso
       if (me.data.ruolo !== 'admin' && !preUser) {
         setValue('assegnato_a', me.data.id)
       }
@@ -71,7 +65,6 @@ export default function NuovaTaskPage() {
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            {/* Titolo */}
             <div>
               <label className="label">Titolo *</label>
               <input
@@ -83,7 +76,6 @@ export default function NuovaTaskPage() {
               {errors.titolo && <p className="form-error">{errors.titolo.message}</p>}
             </div>
 
-            {/* Assegna a */}
             <div>
               <label className="label">Assegna a *</label>
               <select
@@ -100,7 +92,6 @@ export default function NuovaTaskPage() {
               {errors.assegnato_a && <p className="form-error">{errors.assegnato_a.message}</p>}
             </div>
 
-            {/* Priorità */}
             <div>
               <label className="label">Priorità</label>
               <div className="grid grid-cols-4 gap-2">
@@ -122,39 +113,27 @@ export default function NuovaTaskPage() {
               </div>
             </div>
 
-            {/* Descrizione */}
             <div>
               <label className="label">Descrizione</label>
               <textarea
                 rows={4}
-                placeholder="Descrivi cosa deve fare il collaboratore, con dettagli e contesto…"
+                placeholder="Descrivi cosa deve fare il collaboratore…"
                 className="textarea"
                 {...register('descrizione')}
               />
             </div>
 
-            {/* Progetto + Scadenza */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="label">Progetto (opzionale)</label>
-                <input
-                  type="text"
-                  placeholder="Es: ASCOLI WIND"
-                  className="input"
-                  {...register('progetto')}
-                />
+                <input type="text" placeholder="Es: ASCOLI WIND" className="input" {...register('progetto')} />
               </div>
               <div>
                 <label className="label">Scadenza (opzionale)</label>
-                <input
-                  type="date"
-                  className="input"
-                  {...register('scadenza')}
-                />
+                <input type="date" className="input" {...register('scadenza')} />
               </div>
             </div>
 
-            {/* Actions */}
             <div className="flex gap-3 pt-2">
               <button type="submit" disabled={saving} className="btn-primary flex-1 py-3">
                 {saving
@@ -162,13 +141,19 @@ export default function NuovaTaskPage() {
                   : '✅ Crea task'
                 }
               </button>
-              <button type="button" onClick={() => router.back()} className="btn-secondary">
-                Annulla
-              </button>
+              <button type="button" onClick={() => router.back()} className="btn-secondary">Annulla</button>
             </div>
           </form>
         </div>
       </div>
     </AppShell>
+  )
+}
+
+export default function NuovaTaskPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-navy-600 border-t-transparent rounded-full animate-spin" /></div>}>
+      <NuovaTaskForm />
+    </Suspense>
   )
 }
