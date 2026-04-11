@@ -9,6 +9,19 @@ const { requireAuth, requireAdmin } = require('../middleware/auth')
 
 router.use(requireAuth)
 
+// GET /api/tasks/utenti — lista collaboratori per assegnazione task
+router.get('/utenti', async (req, res) => {
+  try {
+    const { rows } = await query(
+      `SELECT id, nome, avatar FROM utenti WHERE attivo = true ORDER BY nome ASC`
+    )
+    return res.json({ success: true, data: rows })
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Errore' })
+  }
+})
+
+
 // ── Helper: label priorità ────────────────────────────────────────
 const PRIORITA = { 1: 'Bassa', 2: 'Media', 3: 'Alta', 4: 'Urgente' }
 const PRIORITA_EMOJI = { 1: '🟢', 2: '🟡', 3: '🟠', 4: '🔴' }
