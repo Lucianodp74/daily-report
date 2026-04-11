@@ -1,6 +1,7 @@
 'use client'
 // ================================================================
-// app/admin/monthly/page.tsx — Report mensili tutti i collaboratori
+// app/admin/monthly/page.tsx v2
+// Fix: delay reload + mostra errori singoli utenti
 // ================================================================
 import { useState, useEffect, useCallback } from 'react'
 import AppShell from '@/components/layout/AppShell'
@@ -25,7 +26,7 @@ export default function AdminMonthlyPage() {
   const [mese, setMese] = useState(oggi.getMonth() + 1)
   const [selected,  setSelected]  = useState<ReportMensile | null>(null)
   const [conferma,  setConferma]  = useState(false)
-  const [esito,     setEsito]     = useState<{ ok: boolean; msg: string } | null>(null)
+  const [esito,     setEsito]     = useState<{ ok: boolean; msg: string; dettaglio?: string } | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -41,9 +42,25 @@ export default function AdminMonthlyPage() {
     setEsito(null)
     setGenerating(true)
     try {
-      await monthlyApi.generaTutti(anno, mese)
+      const res = await monthlyApi.generaTutti(anno, mese)
+      // Analizza risultati per utente
+      const risultati = (res as any).data as { nome: string; success: boolean; error?: string }[]
+      const ok   = risultati?.filter((r: any) => r.success).length ?? 0
+      const fail = risultati?.filter((r: any) => !r.success) ?? []
+
+      // Aspetta un secondo prima di ricaricare
+      await new Promise(r => setTimeout(r, 1200))
       load()
-      setEsito({ ok: true, msg: `Report ${MESI[mese]} ${anno} generati con successo!` })
+
+      if (fail.length > 0) {
+        setEsito({
+          ok: ok > 0,
+          msg: `${ok} report generati, ${fail.length} falliti`,
+          dettaglio: fail.map((f: any) => `${f.nome}: ${f.error}`).join(' | ')
+        })
+      } else {
+        setEsito({ ok: true, msg: `✅ ${ok} report generati con successo per ${MESI[mese]} ${anno}` })
+      }
     } catch (e: unknown) {
       setEsito({ ok: false, msg: e instanceof Error ? e.message : 'Errore generazione' })
     } finally { setGenerating(false) }
@@ -69,48 +86,42 @@ export default function AdminMonthlyPage() {
               {[oggi.getFullYear()-1, oggi.getFullYear()].map(a => <option key={a} value={a}>{a}</option>)}
             </select>
             <a href={exportUrl.monthlyCsv(anno, mese)} download className="btn-secondary text-sm">📥 CSV</a>
-            <button
-              onClick={() => setConferma(true)}
-              disabled={generating}
-              className="btn-amber text-sm"
-            >
-              {generating ? '⏳ Generazione…' : '⚡ Genera tutti'}
+            <button onClick={() => setConferma(true)} disabled={generating} className="btn-amber text-sm">
+              {generating ? (
+                <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Generazione…</>
+              ) : '⚡ Genera tutti'}
             </button>
           </div>
         </div>
 
-        {/* Esito operazione */}
+        {/* Esito */}
         {esito && (
-          <div className={`rounded-2xl px-5 py-4 text-sm font-medium animate-fade-in ${
+          <div className={`rounded-2xl px-5 py-4 text-sm animate-fade-in ${
             esito.ok ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                      : 'bg-red-50 text-red-700 border border-red-200'
           }`}>
-            {esito.ok ? '✅ ' : '❌ '}{esito.msg}
+            <p className="font-medium">{esito.msg}</p>
+            {esito.dettaglio && <p className="text-xs mt-1 opacity-75">{esito.dettaglio}</p>}
           </div>
         )}
 
-        {/* Dialogo conferma inline */}
+        {/* Conferma inline */}
         {conferma && (
           <div className="card border-amber-300 bg-amber-50 p-5 animate-fade-in">
             <p className="font-semibold text-slate-800 mb-1">
               ⚡ Generare i report per <span className="text-amber-700">{MESI[mese]} {anno}</span>?
             </p>
             <p className="text-sm text-slate-500 mb-4">
-              Verranno calcolati KPI e commento AI per tutti i collaboratori attivi.
-              Se i report esistono già verranno aggiornati.
+              Verranno calcolati KPI e commento per tutti i collaboratori attivi con report inseriti.
             </p>
             <div className="flex gap-3">
-              <button onClick={generaTutti} className="btn-amber">
-                ✓ Sì, genera
-              </button>
-              <button onClick={() => setConferma(false)} className="btn-secondary">
-                Annulla
-              </button>
+              <button onClick={generaTutti} className="btn-amber">✓ Sì, genera</button>
+              <button onClick={() => setConferma(false)} className="btn-secondary">Annulla</button>
             </div>
           </div>
         )}
 
-        {/* Lista report */}
+        {/* Lista */}
         {loading ? (
           <div className="flex justify-center py-20">
             <div className="w-8 h-8 border-2 border-navy-600 border-t-transparent rounded-full animate-spin" />
@@ -119,14 +130,13 @@ export default function AdminMonthlyPage() {
           <div className="card p-16 text-center">
             <p className="text-4xl mb-3">📊</p>
             <p className="text-slate-600 font-medium mb-1">Nessun report per {MESI[mese]} {anno}</p>
-            <p className="text-slate-400 text-sm mb-4">Clicca il pulsante per generarli adesso</p>
+            <p className="text-slate-400 text-sm mb-4">I collaboratori devono prima inserire i report giornalieri</p>
             <button onClick={() => setConferma(true)} className="btn-amber">⚡ Genera ora</button>
           </div>
         ) : (
           <div className="grid lg:grid-cols-3 gap-4">
             {reports.map(r => (
-              <button
-                key={r.id}
+              <button key={r.id}
                 onClick={() => setSelected(selected?.id === r.id ? null : r)}
                 className={`text-left card p-5 transition-all hover:shadow-md hover:border-navy-200 ${
                   selected?.id === r.id ? 'ring-2 ring-navy-400 border-navy-300' : ''
@@ -141,13 +151,11 @@ export default function AdminMonthlyPage() {
                     <ValutazioneBadge valutazione={r.valutazione} />
                   </div>
                 </div>
-
                 <ProgressBar percent={r.percentuale_comp} valutazione={r.valutazione} />
                 <div className="flex justify-between mt-2 text-xs text-slate-500">
                   <span>{r.ore_totali}h / {r.ore_attese}h</span>
                   <span className="font-semibold">{r.percentuale_comp}%</span>
                 </div>
-
                 <div className="grid grid-cols-3 gap-1 mt-3 text-center">
                   {[
                     { v: `${r.giorni_lavorati}/${r.giorni_attesi}`, l: 'giorni' },
@@ -160,7 +168,6 @@ export default function AdminMonthlyPage() {
                     </div>
                   ))}
                 </div>
-
                 {r.commento_ai && (
                   <div className="mt-3 bg-navy-50 rounded-xl p-3">
                     <p className="text-xs font-semibold text-navy-700 mb-1">✨ AI</p>
@@ -172,13 +179,11 @@ export default function AdminMonthlyPage() {
           </div>
         )}
 
-        {/* Dettaglio AI espanso */}
+        {/* Dettaglio AI */}
         {selected?.commento_ai && (
           <div className="card p-6 border-navy-200 bg-gradient-to-br from-white to-navy-50 animate-fade-in">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-display font-semibold text-slate-900 flex items-center gap-2">
-                ✨ Analisi AI — {selected.nome}
-              </h3>
+              <h3 className="font-display font-semibold text-slate-900">✨ Analisi AI — {selected.nome}</h3>
               <button onClick={() => setSelected(null)} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
             </div>
             <p className="text-slate-700 leading-relaxed">{selected.commento_ai}</p>
