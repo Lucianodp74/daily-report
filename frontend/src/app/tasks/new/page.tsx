@@ -4,15 +4,17 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import AppShell from '@/components/layout/AppShell'
-import { tasksApi, adminApi, authApi, PRIORITA_CONFIG, type TaskForm, type StatsUtente, type Utente } from '@/lib/api'
+import { tasksApi, authApi, PRIORITA_CONFIG, type TaskForm, type Utente } from '@/lib/api'
 import clsx from 'clsx'
+
+interface UtenteBase { id: string; nome: string; avatar: string | null }
 
 function NuovaTaskForm() {
   const router  = useRouter()
   const search  = useSearchParams()
   const preUser = search.get('user_id')
 
-  const [utenti,  setUtenti]  = useState<StatsUtente[]>([])
+  const [utenti,  setUtenti]  = useState<UtenteBase[]>([])
   const [meInfo,  setMeInfo]  = useState<Utente | null>(null)
   const [saving,  setSaving]  = useState(false)
   const [error,   setError]   = useState<string | null>(null)
@@ -24,9 +26,11 @@ function NuovaTaskForm() {
   const prioritaSelezionata = watch('priorita')
 
   useEffect(() => {
-    Promise.all([authApi.me(), adminApi.users()]).then(([me, u]) => {
+    // tasksApi.utenti è accessibile a tutti gli utenti autenticati
+    Promise.all([authApi.me(), tasksApi.utenti()]).then(([me, u]) => {
       setMeInfo(me.data)
       setUtenti(u.data)
+      // Se non è admin, pre-seleziona se stesso
       if (me.data.ruolo !== 'admin' && !preUser) {
         setValue('assegnato_a', me.data.id)
       }
@@ -47,7 +51,10 @@ function NuovaTaskForm() {
     <AppShell>
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
-          <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 mb-4">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 mb-4"
+          >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/>
             </svg>
@@ -65,6 +72,8 @@ function NuovaTaskForm() {
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+
+            {/* Titolo */}
             <div>
               <label className="label">Titolo *</label>
               <input
@@ -79,6 +88,7 @@ function NuovaTaskForm() {
               {errors.titolo && <p className="form-error">{errors.titolo.message}</p>}
             </div>
 
+            {/* Assegna a */}
             <div>
               <label className="label">Assegna a *</label>
               <select
@@ -95,6 +105,7 @@ function NuovaTaskForm() {
               {errors.assegnato_a && <p className="form-error">{errors.assegnato_a.message}</p>}
             </div>
 
+            {/* Priorità */}
             <div>
               <label className="label">Priorità</label>
               <div className="grid grid-cols-4 gap-2">
@@ -116,6 +127,7 @@ function NuovaTaskForm() {
               </div>
             </div>
 
+            {/* Descrizione */}
             <div>
               <label className="label">Descrizione</label>
               <textarea
@@ -126,6 +138,7 @@ function NuovaTaskForm() {
               />
             </div>
 
+            {/* Progetto + Scadenza */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="label">Progetto (opzionale)</label>
@@ -146,16 +159,21 @@ function NuovaTaskForm() {
               </div>
             </div>
 
+            {/* Actions */}
             <div className="flex gap-3 pt-2">
               <button type="submit" disabled={saving} className="btn-primary flex-1 py-3">
                 {saving ? (
-                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Creazione…</>
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Creazione…
+                  </>
                 ) : '✅ Crea task'}
               </button>
               <button type="button" onClick={() => router.back()} className="btn-secondary">
                 Annulla
               </button>
             </div>
+
           </form>
         </div>
       </div>
