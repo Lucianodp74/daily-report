@@ -171,6 +171,7 @@ export const tasksApi = {
     apiFetch<ApiRes<TaskCommento>>(`/api/tasks/${taskId}/commenti`, {
       method: 'POST', body: JSON.stringify({ testo })
     }),
+  utenti: () => apiFetch<ApiRes<{ id: string; nome: string; avatar: string | null }[]>>('/api/tasks/utenti'),
 }
 
 // ── Export ────────────────────────────────────────────────────────
