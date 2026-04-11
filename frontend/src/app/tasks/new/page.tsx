@@ -71,7 +71,10 @@ function NuovaTaskForm() {
                 type="text"
                 placeholder="Es: Preparare documentazione VIA per GENZANO 1"
                 className={clsx('input', errors.titolo && 'border-red-300')}
-                {...register('titolo', { required: 'Titolo obbligatorio', minLength: { value: 5, message: 'Min 5 caratteri' } })}
+                {...register('titolo', {
+                  required: 'Titolo obbligatorio',
+                  minLength: { value: 5, message: 'Min 5 caratteri' }
+                })}
               />
               {errors.titolo && <p className="form-error">{errors.titolo.message}</p>}
             </div>
@@ -85,7 +88,7 @@ function NuovaTaskForm() {
                 <option value="">Seleziona collaboratore…</option>
                 {utenti.map(u => (
                   <option key={u.id} value={u.id}>
-                    {u.nome} {u.id === meInfo?.id ? '(io)' : ''}
+                    {u.nome}{u.id === meInfo?.id ? ' (io)' : ''}
                   </option>
                 ))}
               </select>
@@ -95,7 +98,7 @@ function NuovaTaskForm() {
             <div>
               <label className="label">Priorità</label>
               <div className="grid grid-cols-4 gap-2">
-                {([1,2,3,4] as const).map(p => (
+                {([1, 2, 3, 4] as const).map(p => (
                   <button
                     key={p}
                     type="button"
@@ -117,7 +120,7 @@ function NuovaTaskForm() {
               <label className="label">Descrizione</label>
               <textarea
                 rows={4}
-                placeholder="Descrivi cosa deve fare il collaboratore…"
+                placeholder="Descrivi cosa deve fare il collaboratore, con dettagli e contesto…"
                 className="textarea"
                 {...register('descrizione')}
               />
@@ -126,22 +129,32 @@ function NuovaTaskForm() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="label">Progetto (opzionale)</label>
-                <input type="text" placeholder="Es: ASCOLI WIND" className="input" {...register('progetto')} />
+                <input
+                  type="text"
+                  placeholder="Es: ASCOLI WIND"
+                  className="input"
+                  {...register('progetto')}
+                />
               </div>
               <div>
                 <label className="label">Scadenza (opzionale)</label>
-                <input type="date" className="input" {...register('scadenza')} />
+                <input
+                  type="date"
+                  className="input"
+                  {...register('scadenza')}
+                />
               </div>
             </div>
 
             <div className="flex gap-3 pt-2">
               <button type="submit" disabled={saving} className="btn-primary flex-1 py-3">
-                {saving
-                  ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Creazione…</>
-                  : '✅ Crea task'
-                }
+                {saving ? (
+                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Creazione…</>
+                ) : '✅ Crea task'}
               </button>
-              <button type="button" onClick={() => router.back()} className="btn-secondary">Annulla</button>
+              <button type="button" onClick={() => router.back()} className="btn-secondary">
+                Annulla
+              </button>
             </div>
           </form>
         </div>
@@ -152,7 +165,11 @@ function NuovaTaskForm() {
 
 export default function NuovaTaskPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-navy-600 border-t-transparent rounded-full animate-spin" /></div>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-navy-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
       <NuovaTaskForm />
     </Suspense>
   )
