@@ -101,7 +101,7 @@ export default function CheckinPage() {
 
   const oggi = format(new Date(), "EEEE d MMMM yyyy", { locale: it })
   const eventoAttivo = stato?.evento_attivo
-  const eventiFatti  = stato?.eventi_fatti ?? {}
+  const eventiFatti  = stato?.eventi_fatti ?? {} as Record<TipoEvento, boolean>
   const presenza     = stato?.presenza
 
   return (
