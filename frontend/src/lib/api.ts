@@ -293,10 +293,6 @@ export const STATO_CONFIG = {
 // ── Alias compatibilità ───────────────────────────────────────────
 export const setToken   = (t: string) => tokenStore.setTokens(t, '')
 export const clearToken = () => tokenStore.clearAll()
-// ================================================================
-// Aggiungi questo in fondo a frontend/src/lib/api.ts
-// ================================================================
-
 export type TipoEvento = 'checkin_mattina' | 'checkout_mattina' | 'checkin_pomeriggio' | 'checkout_pomeriggio'
 
 export interface PresenzaV4 {
@@ -365,4 +361,3 @@ export const presenzeApi = {
       body:   JSON.stringify({ sede_lat, sede_lon, sede_nome, sede_raggio: sede_raggio ?? 200 }),
     }),
 }
-
