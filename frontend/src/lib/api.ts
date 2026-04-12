@@ -293,3 +293,76 @@ export const STATO_CONFIG = {
 // ── Alias compatibilità ───────────────────────────────────────────
 export const setToken   = (t: string) => tokenStore.setTokens(t, '')
 export const clearToken = () => tokenStore.clearAll()
+// ================================================================
+// Aggiungi questo in fondo a frontend/src/lib/api.ts
+// ================================================================
+
+export type TipoEvento = 'checkin_mattina' | 'checkout_mattina' | 'checkin_pomeriggio' | 'checkout_pomeriggio'
+
+export interface PresenzaV4 {
+  id: string; user_id: string; data: string
+  checkin_mattina_at: string | null;    checkin_mattina_ind: string | null
+  checkin_mattina_ok: boolean | null;   distanza_checkin_mat: number | null
+  checkout_mattina_at: string | null;   checkout_mattina_ind: string | null
+  checkout_mattina_ok: boolean | null;  distanza_checkout_mat: number | null
+  checkin_pomeriggio_at: string | null; checkin_pomeriggio_ind: string | null
+  checkin_pomeriggio_ok: boolean | null; distanza_checkin_pom: number | null
+  checkout_pomeriggio_at: string | null; checkout_pomeriggio_ind: string | null
+  checkout_pomeriggio_ok: boolean | null; distanza_checkout_pom: number | null
+  created_at: string
+}
+
+export interface PresenzaOggiV4 extends PresenzaV4 {
+  user_id: string; nome: string; avatar: string | null; email: string
+  presenza_id: string | null
+  sede_lat: number | null; sede_lon: number | null
+  sede_nome: string | null; sede_raggio: number | null
+  stato: 'assente' | 'in_mattina' | 'pausa_pranzo' | 'in_pomeriggio' | 'completo'
+  alert_fuori_sede: boolean
+  minuti_mattina: number | null; minuti_pomeriggio: number | null
+}
+
+export interface StatoCheckinV4 {
+  presenza: PresenzaV4 | null
+  evento_attivo: string
+  eventi_fatti: Record<TipoEvento, boolean>
+  orari: {
+    checkin_mattina: string; checkout_mattina: string
+    checkin_pomeriggio: string; checkout_pomeriggio: string
+    tolleranza: string
+  }
+  sede_configurata: boolean
+}
+
+export const presenzeApi = {
+  stato: () =>
+    apiFetch<ApiRes<StatoCheckinV4>>('/api/presenze/stato'),
+
+  evento: (lat: number, lon: number, tipo: TipoEvento) =>
+    apiFetch<ApiRes<PresenzaV4> & { meta: { in_sede: boolean | null; distanza_metri: number | null } }>(
+      '/api/presenze/evento', {
+        method: 'POST',
+        body:   JSON.stringify({ lat, lon, tipo }),
+      }
+    ),
+
+  storico: (limit?: number) =>
+    apiFetch<ApiRes<PresenzaV4[]>>(`/api/presenze/storico${limit ? `?limit=${limit}` : ''}`),
+
+  adminOggi: () =>
+    apiFetch<ApiRes<PresenzaOggiV4[]>>('/api/presenze/admin/oggi'),
+
+  adminStorico: (params?: { data_da?: string; data_a?: string; user_id?: string }) =>
+    apiFetch<ApiRes<(PresenzaV4 & { nome: string; avatar: string | null })[]>>(
+      '/api/presenze/admin/storico?' + new URLSearchParams(
+        Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v)) as Record<string, string>
+      ).toString()
+    ),
+
+  configuraSede: (userId: string, sede_lat: number, sede_lon: number, sede_nome: string, sede_raggio?: number) =>
+    apiFetch<ApiRes<Utente>>(`/api/presenze/admin/sede/${userId}`, {
+      method: 'PATCH',
+      body:   JSON.stringify({ sede_lat, sede_lon, sede_nome, sede_raggio: sede_raggio ?? 200 }),
+    }),
+}
+
