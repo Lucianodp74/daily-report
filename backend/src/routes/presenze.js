@@ -13,10 +13,10 @@ router.use(requireAuth)
 
 // ── Orari fissi (ora italiana) ────────────────────────────────────
 const EVENTI = {
-  checkin_mattina:     { ora: 9,  min: 0,  tol: 30 },   // 08:30 - 09:30
-  checkout_mattina:    { ora: 13, min: 0,  tol: 30 },   // 12:30 - 13:30
-  checkin_pomeriggio:  { ora: 14, min: 30, tol: 30 },   // 14:00 - 15:00
-  checkout_pomeriggio: { ora: 18, min: 30, tol: 30 },   // 18:00 - 19:00
+  checkin_mattina:     { ora: 9,  min: 0,  tol: 90 },   // 08:30 - 09:30
+  checkout_mattina:    { ora: 13, min: 0,  tol: 90 },   // 12:30 - 13:30
+  checkin_pomeriggio:  { ora: 14, min: 30, tol: 90 },   // 14:00 - 15:00
+  checkout_pomeriggio: { ora: 18, min: 30, tol: 90 },   // 18:00 - 19:00
 }
 
 // ── Helper: ora italiana corrente in minuti ───────────────────────
