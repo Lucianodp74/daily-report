@@ -29,7 +29,7 @@ function OraCell({ at, ok, distanza, ind }: {
       ) : ok === true ? (
         <span className="badge bg-emerald-100 text-emerald-700 text-xs">✅</span>
       ) : null}
-      {ind && <p className="text-xs text-slate-400 truncate max-w-[120px]">{ind}</p>}
+      {ind && <p className="text-xs text-slate-400 truncate max-w-[120px]" title={ind}>{ind}</p>}
     </div>
   )
 }
