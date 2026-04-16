@@ -3,6 +3,7 @@
 // app/checkin/page.tsx v4
 // 4 eventi: check-in 9:00 | check-out 13:00 | check-in 14:30 | check-out 18:30
 // Solo da PC — bloccato su mobile
+// Posizione NON mostrata al collaboratore (solo admin la vede)
 // ================================================================
 import { useState, useEffect, useCallback } from 'react'
 import AppShell from '@/components/layout/AppShell'
@@ -15,12 +16,11 @@ function isMobile(): boolean {
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || window.innerWidth < 768
 }
 
-// Configurazione eventi
 const EVENTI_CONFIG = {
-  checkin_mattina:     { label: 'Check-in Mattina',     emoji: '▶️', orario: '9:00',  tipo: 'entrata', color: 'emerald' },
-  checkout_mattina:    { label: 'Check-out Mattina',    emoji: '⏹️', orario: '13:00', tipo: 'uscita',  color: 'slate'   },
-  checkin_pomeriggio:  { label: 'Check-in Pomeriggio',  emoji: '▶️', orario: '14:30', tipo: 'entrata', color: 'blue'    },
-  checkout_pomeriggio: { label: 'Check-out Pomeriggio', emoji: '⏹️', orario: '18:30', tipo: 'uscita',  color: 'slate'   },
+  checkin_mattina:     { label: 'Check-in Mattina',     emoji: '▶️', orario: '9:00',  tipo: 'entrata' },
+  checkout_mattina:    { label: 'Check-out Mattina',    emoji: '⏹️', orario: '13:00', tipo: 'uscita'  },
+  checkin_pomeriggio:  { label: 'Check-in Pomeriggio',  emoji: '▶️', orario: '14:30', tipo: 'entrata' },
+  checkout_pomeriggio: { label: 'Check-out Pomeriggio', emoji: '⏹️', orario: '18:30', tipo: 'uscita'  },
 } as const
 
 type TipoEvento = keyof typeof EVENTI_CONFIG
@@ -28,12 +28,12 @@ type TipoEvento = keyof typeof EVENTI_CONFIG
 const ORDINE: TipoEvento[] = ['checkin_mattina', 'checkout_mattina', 'checkin_pomeriggio', 'checkout_pomeriggio']
 
 const MSG_FUORI: Record<string, string> = {
-  troppo_presto:      '⏰ Check-in mattina disponibile dalle 8:30',
-  attesa_checkout_mat:'⏳ Check-out mattina disponibile dalle 12:30',
-  pausa_pranzo:       '🍽️ Pausa pranzo — check-in pomeriggio dalle 14:00',
-  attesa_checkout_pom:'⏳ Check-out pomeriggio disponibile dalle 18:00',
-  giornata_finita:    '🌙 Giornata lavorativa conclusa',
-  fuori_orario:       '⏰ Nessun evento disponibile in questo momento',
+  troppo_presto:       '⏰ Check-in mattina disponibile dalle 8:30',
+  attesa_checkout_mat: '⏳ Check-out mattina disponibile dalle 12:30',
+  pausa_pranzo:        '🍽️ Pausa pranzo — check-in pomeriggio dalle 14:00',
+  attesa_checkout_pom: '⏳ Check-out pomeriggio disponibile dalle 18:00',
+  giornata_finita:     '🌙 Giornata lavorativa conclusa',
+  fuori_orario:        '⏰ Nessun evento disponibile in questo momento',
 }
 
 export default function CheckinPage() {
@@ -65,13 +65,9 @@ export default function CheckinPage() {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
-          const res = await presenzeApi.evento(pos.coords.latitude, pos.coords.longitude, tipo)
+          await presenzeApi.evento(pos.coords.latitude, pos.coords.longitude, tipo)
           const cfg = EVENTI_CONFIG[tipo]
-          setSuccess(
-            `✅ ${cfg.label} registrato` +
-            (res.meta?.in_sede === false ? ` · ⚠️ Fuori sede (${res.meta.distanza_metri}m)` :
-             res.meta?.in_sede === true  ? ' · ✅ Posizione confermata' : '')
-          )
+          setSuccess(`✅ ${cfg.label} registrato correttamente`)
           await loadStato()
         } catch (e: unknown) {
           setError(e instanceof Error ? e.message : 'Errore registrazione')
@@ -99,10 +95,9 @@ export default function CheckinPage() {
     </AppShell>
   )
 
-  const oggi = format(new Date(), "EEEE d MMMM yyyy", { locale: it })
+  const oggi        = format(new Date(), "EEEE d MMMM yyyy", { locale: it })
   const eventoAttivo = stato?.evento_attivo
   const eventiFatti  = stato?.eventi_fatti ?? {} as Record<TipoEvento, boolean>
-  const presenza     = stato?.presenza
 
   return (
     <AppShell>
@@ -141,20 +136,10 @@ export default function CheckinPage() {
         ) : (
           <div className="space-y-3">
             {ORDINE.map((tipo) => {
-              const cfg    = EVENTI_CONFIG[tipo]
-              const fatto  = !!eventiFatti[tipo]
-              const attivo = eventoAttivo === tipo
+              const cfg       = EVENTI_CONFIG[tipo]
+              const fatto     = !!eventiFatti[tipo]
+              const attivo    = eventoAttivo === tipo
               const isCheckin = tipo.startsWith('checkin')
-
-              // Indirizzo registrato
-              const indKey = tipo.replace('checkin_', 'checkin_').replace('checkout_', 'checkout_') + '_ind'
-              const okKey  = tipo + '_ok'
-              const distKey = tipo.startsWith('checkin_m') ? 'distanza_checkin_mat' :
-                              tipo.startsWith('checkout_m') ? 'distanza_checkout_mat' :
-                              tipo.startsWith('checkin_p') ? 'distanza_checkin_pom' : 'distanza_checkout_pom'
-              const indirizzo = (presenza as any)?.[indKey]
-              const inSede    = (presenza as any)?.[okKey]
-              const distanza  = (presenza as any)?.[distKey]
 
               return (
                 <div key={tipo} className={`card p-5 space-y-3 transition-all ${
@@ -177,22 +162,6 @@ export default function CheckinPage() {
                       <span className="badge bg-slate-100 text-slate-400 text-xs">In attesa</span>
                     )}
                   </div>
-
-                  {/* Dettaglio se fatto */}
-                  {fatto && indirizzo && (
-                    <p className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2 flex items-start gap-1.5">
-                      <span className="shrink-0">📍</span>
-                      <span>
-                        {indirizzo}
-                        {inSede === false && (
-                          <span className="text-red-600 font-medium ml-2">⚠️ Fuori sede ({distanza}m)</span>
-                        )}
-                        {inSede === true && (
-                          <span className="text-emerald-600 font-medium ml-2">✅ In sede</span>
-                        )}
-                      </span>
-                    </p>
-                  )}
 
                   {/* Bottone */}
                   {!fatto && (
@@ -243,7 +212,7 @@ export default function CheckinPage() {
             </div>
             <div className="flex justify-between text-xs text-slate-400 mt-1 px-1">
               {ORDINE.map(tipo => (
-                <span key={tipo} className="text-center" style={{width:'25%'}}>
+                <span key={tipo} className="text-center" style={{ width: '25%' }}>
                   {EVENTI_CONFIG[tipo].tipo === 'entrata' ? 'In' : 'Out'}
                 </span>
               ))}
