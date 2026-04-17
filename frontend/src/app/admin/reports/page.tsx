@@ -40,8 +40,7 @@ export default function AdminReportsPage() {
 
   useEffect(() => { load() }, [load])
 
-  const oreTotal = reports.reduce((s, r) => s + r.ore_lavorate, 0)
-
+  const oreTotal = reports.reduce((s, r) => s + Number(r.ore_lavorate), 0)
   const scaricaCSV = () => {
     const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
     const url = exportUrl.csv(params)
