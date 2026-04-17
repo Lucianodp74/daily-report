@@ -54,12 +54,15 @@ export default function AdminReportsPage() {
             </p>
           </div>
           <a
-            href={exportUrl.csv(Object.fromEntries(Object.entries(filters).filter(([,v]) => v)))}
-            download
-            className="btn-secondary"
-          >
-            📥 Export CSV
-          </a>
+           <button
+  onClick={() => {
+    const params = Object.fromEntries(Object.entries(filters).filter(([,v]) => v))
+    window.open(exportUrl.csv(params), '_blank')
+  }}
+  className="btn-secondary"
+>
+  📥 Export CSV
+</button>
         </div>
 
         {/* Filtri */}
