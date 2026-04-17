@@ -4,7 +4,7 @@
 // ================================================================
 import { useState, useEffect, useCallback } from 'react'
 import AppShell from '@/components/layout/AppShell'
-import { adminApi, exportUrl, type ReportCompleto, type StatsUtente } from '@/lib/api'
+import { adminApi, authApi, exportUrl, type ReportCompleto, type StatsUtente } from '@/lib/api'
 import { format, parseISO } from 'date-fns'
 import { it } from 'date-fns/locale'
 
@@ -21,10 +21,11 @@ function avatarColor(s: string) {
 }
 
 export default function AdminReportsPage() {
-  const [reports, setReports] = useState<ReportCompleto[]>([])
-  const [users,   setUsers]   = useState<StatsUtente[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState({ user_id: '', data_da: '', data_a: '' })
+  const [reports,    setReports]    = useState<ReportCompleto[]>([])
+  const [users,      setUsers]      = useState<StatsUtente[]>([])
+  const [loading,    setLoading]    = useState(true)
+  const [scaricando, setScaricando] = useState(false)
+  const [filters,    setFilters]    = useState({ user_id: '', data_da: '', data_a: '' })
 
   const load = useCallback(() => {
     setLoading(true)
@@ -41,24 +42,50 @@ export default function AdminReportsPage() {
   useEffect(() => { load() }, [load])
 
   const oreTotal = reports.reduce((s, r) => s + Number(r.ore_lavorate), 0)
-  const scaricaCSV = async () => {
-  const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
-  const qs = new URLSearchParams(params as Record<string, string>).toString()
-  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/export/csv${qs ? '?' + qs : ''}`
-  const token = localStorage.getItem('dr_access_token')
 
-  const res  = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-  const blob = await res.blob()
-  const link = document.createElement('a')
-  link.href  = URL.createObjectURL(blob)
-  link.download = `report_${new Date().toISOString().slice(0,10)}.csv`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(link.href)
-}
+  const scaricaCSV = async () => {
+    setScaricando(true)
+    try {
+      // Costruisce parametri filtro
+      const p: Record<string, string> = {}
+      if (filters.user_id) p.user_id = filters.user_id
+      if (filters.data_da) p.data_da = filters.data_da
+      if (filters.data_a)  p.data_a  = filters.data_a
+
+      // Usa la funzione exportUrl che include già il token
+      const url = exportUrl.csv(p)
+
+      // Scarica con fetch usando l'header Authorization
+      const token = localStorage.getItem('dr_access_token')
+      const baseUrl = url.split('?')[0]
+      const qs = new URLSearchParams(p).toString()
+      const finalUrl = `${baseUrl}${qs ? '?' + qs : ''}`
+
+      const res = await fetch(finalUrl, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        alert(`Errore: ${err.error}`)
+        return
+      }
+
+      const text = await res.text()
+      const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `report_${new Date().toISOString().slice(0,10)}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(link.href)
+    } catch (e) {
+      alert('Errore durante il download')
+    } finally {
+      setScaricando(false)
+    }
+  }
 
   return (
     <AppShell requireAdmin>
@@ -70,8 +97,8 @@ export default function AdminReportsPage() {
               {reports.length} report · {oreTotal.toFixed(1)}h totali
             </p>
           </div>
-          <button onClick={scaricaCSV} className="btn-secondary">
-            📥 Export CSV
+          <button onClick={scaricaCSV} disabled={scaricando} className="btn-secondary">
+            {scaricando ? '⏳ Download…' : '📥 Export CSV'}
           </button>
         </div>
 
