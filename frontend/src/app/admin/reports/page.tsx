@@ -43,13 +43,20 @@ export default function AdminReportsPage() {
   const oreTotal = reports.reduce((s, r) => s + Number(r.ore_lavorate), 0)
   const scaricaCSV = async () => {
   const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
-  const url = exportUrl.csv(params)
-  const res  = await fetch(url)
+  const qs = new URLSearchParams(params as Record<string, string>).toString()
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/export/csv${qs ? '?' + qs : ''}`
+  const token = localStorage.getItem('dr_access_token')
+
+  const res  = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
   const blob = await res.blob()
   const link = document.createElement('a')
   link.href  = URL.createObjectURL(blob)
   link.download = `report_${new Date().toISOString().slice(0,10)}.csv`
+  document.body.appendChild(link)
   link.click()
+  document.body.removeChild(link)
   URL.revokeObjectURL(link.href)
 }
 
