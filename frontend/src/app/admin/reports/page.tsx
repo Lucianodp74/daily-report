@@ -21,7 +21,6 @@ function avatarColor(s: string) {
 }
 
 export default function AdminReportsPage() {
-  const [selected, setSelected] = useState<any>(null)
   const [reports, setReports] = useState<ReportCompleto[]>([])
   const [users,   setUsers]   = useState<StatsUtente[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,6 +42,12 @@ export default function AdminReportsPage() {
 
   const oreTotal = reports.reduce((s, r) => s + r.ore_lavorate, 0)
 
+  const scaricaCSV = () => {
+    const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
+    const url = exportUrl.csv(params)
+    window.open(url, '_blank')
+  }
+
   return (
     <AppShell requireAdmin>
       <div className="max-w-6xl mx-auto space-y-6">
@@ -50,19 +55,12 @@ export default function AdminReportsPage() {
           <div>
             <h1 className="font-display font-bold text-2xl text-slate-900">Report — Vista Admin</h1>
             <p className="text-slate-500 text-sm mt-1">
-              {reports.length} report · {Number(oreTotal).toFixed(1)}h totali
+              {reports.length} report · {oreTotal.toFixed(1)}h totali
             </p>
           </div>
-          <a
-           <button
-  onClick={() => {
-    const params = Object.fromEntries(Object.entries(filters).filter(([,v]) => v))
-    window.open(exportUrl.csv(params), '_blank')
-  }}
-  className="btn-secondary"
->
-  📥 Export CSV
-</button>
+          <button onClick={scaricaCSV} className="btn-secondary">
+            📥 Export CSV
+          </button>
         </div>
 
         {/* Filtri */}
@@ -116,7 +114,7 @@ export default function AdminReportsPage() {
                     </tr>
                   ) : (
                     reports.map(r => (
-                      <tr key={r.id} className="cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => setSelected(r)}>
+                      <tr key={r.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <div className={`avatar-sm text-white text-xs ${avatarColor(r.nome_utente)}`}>
@@ -146,44 +144,6 @@ export default function AdminReportsPage() {
           </div>
         )}
       </div>
-    
-      {/* Modal dettaglio report */}
-      {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSelected(null)}>
-          <div className="fixed inset-0 bg-black/50" />
-          <div className="relative bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6 animate-fade-in" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="avatar-sm bg-navy-600 text-white">{selected.avatar_utente || selected.nome_utente?.slice(0,2).toUpperCase()}</div>
-                <div>
-                  <p className="font-display font-semibold text-slate-900">{selected.nome_utente}</p>
-                  <p className="text-xs text-slate-500">{new Date(selected.data).toLocaleDateString('it', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}</p>
-                </div>
-              </div>
-              <button onClick={() => setSelected(null)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs font-medium text-slate-400 uppercase mb-1">Attivit\u00e0 svolte</p>
-                <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{selected.attivita}</p>
-              </div>
-              {selected.note && (
-                <div>
-                  <p className="text-xs font-medium text-slate-400 uppercase mb-1">Note</p>
-                  <p className="text-sm text-slate-600 whitespace-pre-wrap">{selected.note}</p>
-                </div>
-              )}
-              <div className="flex items-center gap-4 pt-2 border-t border-slate-100">
-                <div><span className="text-xs text-slate-400">Ore:</span> <span className="font-semibold text-navy-700">{Number(selected.ore_lavorate).toFixed(1)}h</span></div>
-                {selected.umore && <div><span className="text-xs text-slate-400">Umore:</span> <span className="text-lg">{["","\ud83d\ude13","\ud83d\ude10","\ud83d\ude42","\ud83d\ude0a","\ud83d\ude80"][selected.umore]}</span></div>}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
     </AppShell>
   )
 }
