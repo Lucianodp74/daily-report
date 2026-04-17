@@ -41,11 +41,17 @@ export default function AdminReportsPage() {
   useEffect(() => { load() }, [load])
 
   const oreTotal = reports.reduce((s, r) => s + Number(r.ore_lavorate), 0)
-  const scaricaCSV = () => {
-    const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
-    const url = exportUrl.csv(params)
-    window.open(url, '_blank')
-  }
+  const scaricaCSV = async () => {
+  const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
+  const url = exportUrl.csv(params)
+  const res  = await fetch(url)
+  const blob = await res.blob()
+  const link = document.createElement('a')
+  link.href  = URL.createObjectURL(blob)
+  link.download = `report_${new Date().toISOString().slice(0,10)}.csv`
+  link.click()
+  URL.revokeObjectURL(link.href)
+}
 
   return (
     <AppShell requireAdmin>
