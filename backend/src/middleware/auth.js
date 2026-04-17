@@ -4,12 +4,16 @@
 const jwt = require('jsonwebtoken')
 
 function requireAuth(req, res, next) {
+  // Accetta token da header Authorization OPPURE da query string ?token=
   const header = req.headers.authorization
-  if (!header || !header.startsWith('Bearer ')) {
+  const token  = (header && header.startsWith('Bearer '))
+    ? header.slice(7)
+    : req.query.token
+
+  if (!token) {
     return res.status(401).json({ success: false, error: 'Token mancante' })
   }
 
-  const token = header.slice(7)
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET)
     req.userId    = payload.sub
