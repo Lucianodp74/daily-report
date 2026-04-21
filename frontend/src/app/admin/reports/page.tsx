@@ -43,30 +43,22 @@ export default function AdminReportsPage() {
 
   const oreTotal = reports.reduce((s, r) => s + Number(r.ore_lavorate), 0)
 
-  const scaricaCSV = async () => {
+ const scaricaCSV = async () => {
   setScaricando(true)
   try {
     const p: Record<string, string> = {}
     if (filters.user_id) p.user_id = filters.user_id
     if (filters.data_da) p.data_da = filters.data_da
     if (filters.data_a)  p.data_a  = filters.data_a
-
     const qs    = new URLSearchParams(p).toString()
-    const base  = process.env.NEXT_PUBLIC_API_URL
-    const url   = `${base}/api/export/csv${qs ? '?' + qs : ''}`
     const token = localStorage.getItem('dr_access_token')
-
-    const res  = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
+    const url   = `${process.env.NEXT_PUBLIC_API_URL}/api/export/xlsx${qs ? '?' + qs : ''}`
+    const res   = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
     if (!res.ok) { alert('Errore download'); return }
-
-    // Forza encoding UTF-8 con BOM per Excel italiano
-    const buffer = await res.arrayBuffer()
-    const blob   = new Blob([buffer], { type: 'text/csv;charset=utf-8;' })
-    const link   = document.createElement('a')
-    link.href    = URL.createObjectURL(blob)
-    link.download = `report_${new Date().toISOString().slice(0,10)}.csv`
+    const blob  = await res.blob()
+    const link  = document.createElement('a')
+    link.href   = URL.createObjectURL(blob)
+    link.download = `Report_GruppoVisconti_${new Date().toISOString().slice(0,10)}.xlsx`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -85,7 +77,7 @@ export default function AdminReportsPage() {
             </p>
           </div>
           <button onClick={scaricaCSV} disabled={scaricando} className="btn-secondary">
-            {scaricando ? '⏳ Download…' : '📥 Export CSV'}
+            {scaricando ? '⏳ Download…' : '📥 Export Excel'}
           </button>
         </div>
 
