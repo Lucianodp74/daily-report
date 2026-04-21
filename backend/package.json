@@ -24,6 +24,7 @@
     "pino": "^9.5.0",
     "pino-http": "^10.3.0",
     "pino-pretty": "^13.0.0"
+    "exceljs": "^4.4.0",
   },
   "devDependencies": {
     "nodemon": "^3.1.7"
