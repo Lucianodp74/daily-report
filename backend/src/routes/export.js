@@ -24,11 +24,21 @@ router.use(authFromQuery)
 
 // ── GET /api/export/csv — Export report utente ────────────────────
 router.get('/csv', async (req, res) => {
-  const { data_da, data_a } = req.query
+  const { data_da, data_a, user_id } = req.query
+  const isAdmin = req.userRuolo === 'admin'
   try {
-    let sql = `SELECT r.data, r.attivita, r.note, r.ore_lavorate, r.umore, r.created_at
-               FROM report r WHERE r.user_id = $1`
-    const params = [req.userId]; let idx = 2
+    let sql, params, idx
+
+    if (isAdmin) {
+      sql = `SELECT u.nome AS nome_utente, r.data, r.attivita, r.note, r.ore_lavorate, r.created_at
+             FROM report r JOIN utenti u ON u.id = r.user_id WHERE 1=1`
+      params = []; idx = 1
+      if (user_id) { sql += ` AND r.user_id = $${idx++}`; params.push(user_id) }
+    } else {
+      sql = `SELECT r.data, r.attivita, r.note, r.ore_lavorate, r.umore, r.created_at
+             FROM report r WHERE r.user_id = $1`
+      params = [req.userId]; idx = 2
+    }
 
     if (data_da) { sql += ` AND r.data >= $${idx++}`; params.push(data_da) }
     if (data_a)  { sql += ` AND r.data <= $${idx++}`; params.push(data_a) }
@@ -38,11 +48,16 @@ router.get('/csv', async (req, res) => {
     const { rows } = await query(sql, params)
 
     // Genera CSV
-    const header = 'Data,Attività,Note,Ore Lavorate,Umore'
+    const header = isAdmin
+      ? 'Collaboratore,Data,Attività,Note,Ore Lavorate'
+      : 'Data,Attività,Note,Ore Lavorate,Umore'
+
     const csvRows = rows.map(r => {
-      const att = `"${(r.attivita || '').replace(/"/g, '""')}"`
-      const note = `"${(r.note || '').replace(/"/g, '""')}"`
-      return `${r.data},${att},${note},${r.ore_lavorate},${r.umore ?? ''}`
+      const att  = `"${(r.attivita || '').replace(/"/g, '""')}"`
+      const note = `"${(r.note    || '').replace(/"/g, '""')}"`
+      return isAdmin
+        ? `${r.nome_utente},${r.data},${att},${note},${r.ore_lavorate}`
+        : `${r.data},${att},${note},${r.ore_lavorate},${r.umore ?? ''}`
     })
 
     const csv = [header, ...csvRows].join('\n')
