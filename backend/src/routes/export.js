@@ -48,10 +48,10 @@ router.get('/csv', async (req, res) => {
     const { rows } = await query(sql, params)
 
     // Genera CSV
-    const header = isAdmin
-      ? 'Collaboratore,Data,Attività,Note,Ore Lavorate'
-      : 'Data,Attività,Note,Ore Lavorate,Umore'
-
+    const SEP = ';'
+const header = isAdmin
+  ? `Collaboratore${SEP}Data${SEP}Attività${SEP}Note${SEP}Ore Lavorate`
+  : `Data${SEP}Attività${SEP}Note${SEP}Ore Lavorate${SEP}Umore`
     const fmtData = (d) => {
   if (!d) return ''
   const dt = new Date(d)
@@ -63,8 +63,8 @@ const csvRows = rows.map(r => {
   const att  = fmtTesto(r.attivita)
   const note = fmtTesto(r.note)
   return isAdmin
-    ? `${r.nome_utente},${fmtData(r.data)},${att},${note},${r.ore_lavorate}`
-    : `${fmtData(r.data)},${att},${note},${r.ore_lavorate},${r.umore ?? ''}`
+  ? [r.nome_utente, fmtData(r.data), att, note, r.ore_lavorate].join(SEP)
+  : [fmtData(r.data), att, note, r.ore_lavorate, r.umore ?? ''].join(SEP)
 })
 
     const csv = [header, ...csvRows].join('\n')
