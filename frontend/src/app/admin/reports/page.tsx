@@ -44,49 +44,36 @@ export default function AdminReportsPage() {
   const oreTotal = reports.reduce((s, r) => s + Number(r.ore_lavorate), 0)
 
   const scaricaCSV = async () => {
-    setScaricando(true)
-    try {
-      // Costruisce parametri filtro
-      const p: Record<string, string> = {}
-      if (filters.user_id) p.user_id = filters.user_id
-      if (filters.data_da) p.data_da = filters.data_da
-      if (filters.data_a)  p.data_a  = filters.data_a
+  setScaricando(true)
+  try {
+    const p: Record<string, string> = {}
+    if (filters.user_id) p.user_id = filters.user_id
+    if (filters.data_da) p.data_da = filters.data_da
+    if (filters.data_a)  p.data_a  = filters.data_a
 
-      // Usa la funzione exportUrl che include già il token
-      const url = exportUrl.csv(p)
+    const qs    = new URLSearchParams(p).toString()
+    const base  = process.env.NEXT_PUBLIC_API_URL
+    const url   = `${base}/api/export/csv${qs ? '?' + qs : ''}`
+    const token = localStorage.getItem('dr_access_token')
 
-      // Scarica con fetch usando l'header Authorization
-      const token = localStorage.getItem('dr_access_token')
-      const baseUrl = url.split('?')[0]
-      const qs = new URLSearchParams(p).toString()
-      const finalUrl = `${baseUrl}${qs ? '?' + qs : ''}`
+    const res  = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (!res.ok) { alert('Errore download'); return }
 
-      const res = await fetch(finalUrl, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-
-      if (!res.ok) {
-        const err = await res.json()
-        alert(`Errore: ${err.error}`)
-        return
-      }
-
-      const text = await res.text()
-      const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      link.download = `report_${new Date().toISOString().slice(0,10)}.csv`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(link.href)
-    } catch (e) {
-      alert('Errore durante il download')
-    } finally {
-      setScaricando(false)
-    }
-  }
-
+    // Forza encoding UTF-8 con BOM per Excel italiano
+    const buffer = await res.arrayBuffer()
+    const blob   = new Blob([buffer], { type: 'text/csv;charset=utf-8;' })
+    const link   = document.createElement('a')
+    link.href    = URL.createObjectURL(blob)
+    link.download = `report_${new Date().toISOString().slice(0,10)}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)
+  } catch { alert('Errore durante il download') }
+  finally  { setScaricando(false) }
+}
   return (
     <AppShell requireAdmin>
       <div className="max-w-6xl mx-auto space-y-6">
