@@ -43,6 +43,7 @@ app.use('/api/reports', require('./routes/reports'))
 app.use('/api/monthly', require('./routes/monthly'))
 app.use('/api/admin',   require('./routes/admin'))
 app.use('/api/export',  require('./routes/export'))
+app.use('/api/export', require('./routes/exportXlsx'))
 app.use('/api/tasks',   require('./routes/tasks'))
 app.use('/api/presenze', require('./routes/presenze'))
 
