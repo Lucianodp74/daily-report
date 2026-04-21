@@ -52,17 +52,25 @@ router.get('/csv', async (req, res) => {
       ? 'Collaboratore,Data,Attività,Note,Ore Lavorate'
       : 'Data,Attività,Note,Ore Lavorate,Umore'
 
-    const csvRows = rows.map(r => {
-      const att  = `"${(r.attivita || '').replace(/"/g, '""')}"`
-      const note = `"${(r.note    || '').replace(/"/g, '""')}"`
-      return isAdmin
-        ? `${r.nome_utente},${r.data},${att},${note},${r.ore_lavorate}`
-        : `${r.data},${att},${note},${r.ore_lavorate},${r.umore ?? ''}`
-    })
+    const fmtData = (d) => {
+  if (!d) return ''
+  const dt = new Date(d)
+  return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}`
+}
+const fmtTesto = (t) => `"${(t || '').replace(/"/g, '""').replace(/\n/g, ' ').replace(/\r/g, '')}"`
+
+const csvRows = rows.map(r => {
+  const att  = fmtTesto(r.attivita)
+  const note = fmtTesto(r.note)
+  return isAdmin
+    ? `${r.nome_utente},${fmtData(r.data)},${att},${note},${r.ore_lavorate}`
+    : `${fmtData(r.data)},${att},${note},${r.ore_lavorate},${r.umore ?? ''}`
+})
 
     const csv = [header, ...csvRows].join('\n')
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Content-Disposition', 'attachment; filename="report.csv"')
     return res.send('\uFEFF' + csv) // BOM per Excel
   } catch (err) {
